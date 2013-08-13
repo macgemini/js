@@ -133,3 +133,25 @@ Terrarium.prototype.toString = function() {
     });
     return result.join("");
 };
+
+
+Terrarium.prototype.listActingCreatures = function() {
+  var found = [];
+  this.grid.each(function(point, value) {
+    if (value != undefined && value.act)
+      found.push({object: value, point: point});
+  });
+  return found;
+};
+
+Terrarium.prototype.listSurroundings = function(position) {
+    var surrounding = {};
+    var grid = this.grid;
+    directions.each(function(name,direction) {
+	    if (grid.isInside(position.add(direction)))
+		surrounding[name] = characterFromElement(grid.valueAt(position.add(direction)));
+	    else
+		surrounding[name] = "#";
+ 	});
+    return surrounding;
+};
