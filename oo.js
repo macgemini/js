@@ -1,3 +1,10 @@
+function forEachIn(object, action) {
+  for (var property in object) {
+    if (Object.prototype.hasOwnProperty.call(object, property))
+      action(property, object[property]);
+  }
+}
+
 function Dictionary(startValues) {
   this.values = startValues || {};
 }
@@ -12,8 +19,13 @@ Dictionary.prototype.contains = function(name) {
     Object.prototype.propertyIsEnumerable.call(this.values, name);
 };
 Dictionary.prototype.each = function(action) {
-  forEachIn(this.values, action);
+  forEachIn(this.values,action);
 };
+
+function forEach(array, action) {
+  for (var i = 0; i < array.length; i++)
+    action(array[i]);
+}
 
 var thePlan =
   ["############################",
@@ -40,6 +52,10 @@ Point.prototype.add = function(point) {
 
 Point.prototype.isEqualTo = function(point) {
     return (this.x == point.x && this.y == point.y);
+};
+
+Point.prototype.toString = function() {
+  return "(" + this.x + "," + this.y + ")";
 };
 
 function Grid(width , height) {
@@ -84,7 +100,7 @@ var directions = new Dictionary(
    "w":  new Point(-1,  0),
    "nw": new Point(-1, -1)});
 
-function StupidBug() {};
+function StupidBug() {}
 StupidBug.prototype.act = function(surroundings) {
   return {type: "move", direction: "s"};
 };
@@ -97,8 +113,7 @@ function Terrarium(plan) {
   for (var y = 0; y < plan.length; y++) {
     var line = plan[y];
     for (var x = 0; x < line.length; x++) {
-      grid.setValueAt(new Point(x, y),
-		      elementFromCharacter(line.charAt(x)));
+      grid.setValueAt(new Point(x, y), elementFromCharacter(line.charAt(x)));
     }
   }
   this.grid = grid;
@@ -117,41 +132,65 @@ wall.character = "#";
 StupidBug.prototype.character = "o";
 
 function characterFromElement(element) {
-  if (element == undefined)
+  if (element === undefined)
     return " ";
   else
     return element.character;
 }
 
 Terrarium.prototype.toString = function() {
-    var result = [];
-    var endOfLine = this.grid.width - 1;
-    this.grid.each(function(point,value) {
-	result.push(characterFromElement(value));
-	if (point.x == endOfLine)
-	    result.push("\n");
-    });
-    return result.join("");
+  var characters = [];
+  var endOfLine = this.grid.width - 1;
+  this.grid.each(function(point, value) {
+    characters.push(characterFromElement(value));
+    if (point.x == endOfLine)
+      characters.push("\n");
+  });
+  return characters.join("");
 };
 
 
 Terrarium.prototype.listActingCreatures = function() {
   var found = [];
   this.grid.each(function(point, value) {
-    if (value != undefined && value.act)
+    if (value !== undefined && value.act)
       found.push({object: value, point: point});
   });
   return found;
 };
 
-Terrarium.prototype.listSurroundings = function(position) {
-    var surrounding = {};
-    var grid = this.grid;
-    directions.each(function(name,direction) {
-	    if (grid.isInside(position.add(direction)))
-		surrounding[name] = characterFromElement(grid.valueAt(position.add(direction)));
-	    else
-		surrounding[name] = "#";
- 	});
-    return surrounding;
+Terrarium.prototype.listSurroundings = function(center) {
+  var result = {};
+  var grid = this.grid;
+  directions.each(function(name, direction) {
+    var place = center.add(direction);
+    if (grid.isInside(place))
+      result[name] = characterFromElement(grid.valueAt(place));
+    else
+      result[name] = "#";
+  });
+  return result;
 };
+
+Terrarium.prototype.processCreature = function(creature) {
+  var surroundings = this.listSurroundings(creature.point);
+  var action = creature.object.act(surroundings);
+  if (action.type == "move" && directions.contains(action.direction)) {
+    var to = creature.point.add(directions.lookup(action.direction));
+    if (this.grid.isInside(to) && this.grid.valueAt(to) === undefined)
+      this.grid.moveValue(creature.point, to);
+  }
+  else {
+    throw new Error("Unsupported action: " + action.type);
+  }
+};
+
+Terrarium.prototype.step = function() {
+     forEach(this.listActingCreatures(), bind(this.processCreature, this));
+};
+
+function bind(func, object) {
+  return function(){
+    return func.apply(object, arguments);
+  };
+}
