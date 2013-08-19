@@ -22,23 +22,36 @@ Dictionary.prototype.each = function(action) {
   forEachIn(this.values,action);
 };
 
+Dictionary.prototype.names = function() {
+    var names = [];
+    this.each(function(name, value) {names.push(name);});
+    return names;
+}
+
+function randomElement(array) {
+    if (array.length == 0) 
+	throw new Error("array is empty");
+    else 
+	return array[Math.floor(Math.random() * array.length)];
+}
+
 function forEach(array, action) {
   for (var i = 0; i < array.length; i++)
     action(array[i]);
 }
 
-var thePlan =
+var newPlan =
   ["############################",
-   "#      #    #      o      ##",
+   "#                      #####",
+   "#    ##                 ####",
+   "#   ####     ~ ~          ##",
+   "#    ##       ~            #",
    "#                          #",
-   "#          #####           #",
-   "##         #   #    ##     #",
-   "###           ##     #     #",
-   "#           ###      #     #",
-   "#   ####                   #",
-   "#   ##       o             #",
-   "# o  #         o       ### #",
-   "#    #                     #",
+   "#                ###       #",
+   "#               #####      #",
+   "#                ###       #",
+   "# %        ###        %    #",
+   "#        #######           #",
    "############################"];
 
 function Point(x,y) {
@@ -100,10 +113,25 @@ var directions = new Dictionary(
    "w":  new Point(-1,  0),
    "nw": new Point(-1, -1)});
 
-function StupidBug() {}
-StupidBug.prototype.act = function(surroundings) {
-  return {type: "move", direction: "s"};
+function BouncingBug() {
+  this.direction = "ne";
+}
+BouncingBug.prototype.act = function(surroundings) {
+  if (surroundings[this.direction] != " ")
+    this.direction = (this.direction == "ne" ? "sw" : "ne");
+  return {type: "move", direction: this.direction};
 };
+BouncingBug.prototype.character = "%";
+creatureTypes.register(BouncingBug);
+
+
+function DrunkBug() {}
+DrunkBug.prototype.act = function(surroundings) {
+    this.direction = randomElement(directions.names());
+    return {type: "move", direction: this.direction};
+}
+DrunkBug.prototype.character = "~";
+cratureTypes.register(DrunkBug);
 
 
 var wall = {};
@@ -119,13 +147,20 @@ function Terrarium(plan) {
   this.grid = grid;
 }
 
+var creatureTypes = new Dictionary();
+creatureTypes.register = function(constructor) {
+  this.store(constructor.prototype.character, constructor);
+};
+
 function elementFromCharacter(character) {
   if (character == " ")
     return undefined;
   else if (character == "#")
     return wall;
-  else if (character == "o")
-    return new StupidBug();
+  else if (creatureTypes.contains(character))
+    return new (creatureTypes.lookup(character))();
+  else
+    throw new Error("Unknown character: " + character);
 }
 
 wall.character = "#";
@@ -187,10 +222,31 @@ Terrarium.prototype.processCreature = function(creature) {
 
 Terrarium.prototype.step = function() {
      forEach(this.listActingCreatures(), bind(this.processCreature, this));
+    if (this.onStep)
+    this.onStep();
 };
+
+
 
 function bind(func, object) {
   return function(){
     return func.apply(object, arguments);
   };
 }
+
+Point.prototype.toString = function() {
+  return "(" + this.x + "," + this.y + ")";
+};
+
+Terrarium.prototype.start = function() {
+  if (!this.running)
+    this.running = setInterval(bind(this.step, this), 500);
+};
+
+Terrarium.prototype.stop = function() {
+  if (this.running) {
+    clearInterval(this.running);
+    this.running = null;
+  }
+};
+
