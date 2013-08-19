@@ -26,12 +26,12 @@ Dictionary.prototype.names = function() {
     var names = [];
     this.each(function(name, value) {names.push(name);});
     return names;
-}
+};
 
 function randomElement(array) {
-    if (array.length == 0) 
+    if (array.length === 0)
 	throw new Error("array is empty");
-    else 
+    else
 	return array[Math.floor(Math.random() * array.length)];
 }
 
@@ -122,16 +122,14 @@ BouncingBug.prototype.act = function(surroundings) {
   return {type: "move", direction: this.direction};
 };
 BouncingBug.prototype.character = "%";
-creatureTypes.register(BouncingBug);
-
 
 function DrunkBug() {}
 DrunkBug.prototype.act = function(surroundings) {
     this.direction = randomElement(directions.names());
     return {type: "move", direction: this.direction};
-}
+};
 DrunkBug.prototype.character = "~";
-cratureTypes.register(DrunkBug);
+
 
 
 var wall = {};
@@ -147,11 +145,6 @@ function Terrarium(plan) {
   this.grid = grid;
 }
 
-var creatureTypes = new Dictionary();
-creatureTypes.register = function(constructor) {
-  this.store(constructor.prototype.character, constructor);
-};
-
 function elementFromCharacter(character) {
   if (character == " ")
     return undefined;
@@ -164,7 +157,6 @@ function elementFromCharacter(character) {
 }
 
 wall.character = "#";
-StupidBug.prototype.character = "o";
 
 function characterFromElement(element) {
   if (element === undefined)
@@ -250,3 +242,11 @@ Terrarium.prototype.stop = function() {
   }
 };
 
+var creatureTypes = new Dictionary();
+
+creatureTypes.register = function(constructor) {
+  this.store(constructor.prototype.character, constructor);
+};
+
+creatureTypes.register(BouncingBug);
+creatureTypes.register(DrunkBug);
