@@ -5,6 +5,15 @@ function forEachIn(object, action) {
   }
 }
 
+function findDirections(surroundings, wanted) {
+  var found = [];
+  directions.each(function(name) {
+    if (surroundings[name] == wanted)
+      found.push(name);
+  });
+  return found;
+}
+
 function Dictionary(startValues) {
   this.values = startValues || {};
 }
@@ -52,6 +61,20 @@ var newPlan =
    "#                ###       #",
    "# %        ###        %    #",
    "#        #######           #",
+   "############################"];
+
+var lichenPlan =
+  ["############################",
+   "#                     ######",
+   "#    ***   @            **##",
+   "#   *##**         **  c  *##",
+   "#    ***     c    ##**    *#",
+   "#  @    c         ##***   *#",
+   "#                 ##**    *#",
+   "#   c       #*            *#",
+   "#*      @   #**    @  c   *#",
+   "#***        ##**    c    **#",
+   "#*****     ###***       *###",
    "############################"];
 
 function Point(x,y) {
@@ -131,7 +154,6 @@ DrunkBug.prototype.act = function(surroundings) {
 DrunkBug.prototype.character = "~";
 
 
-
 var wall = {};
 
 function Terrarium(plan) {
@@ -199,25 +221,12 @@ Terrarium.prototype.listSurroundings = function(center) {
   return result;
 };
 
-Terrarium.prototype.processCreature = function(creature) {
-  var surroundings = this.listSurroundings(creature.point);
-  var action = creature.object.act(surroundings);
-  if (action.type == "move" && directions.contains(action.direction)) {
-    var to = creature.point.add(directions.lookup(action.direction));
-    if (this.grid.isInside(to) && this.grid.valueAt(to) === undefined)
-      this.grid.moveValue(creature.point, to);
-  }
-  else {
-    throw new Error("Unsupported action: " + action.type);
-  }
-};
 
 Terrarium.prototype.step = function() {
      forEach(this.listActingCreatures(), bind(this.processCreature, this));
     if (this.onStep)
     this.onStep();
 };
-
 
 
 function bind(func, object) {
@@ -248,5 +257,133 @@ creatureTypes.register = function(constructor) {
   this.store(constructor.prototype.character, constructor);
 };
 
+
+function clone(object) {
+  function OneShotConstructor(){}
+  OneShotConstructor.prototype = object;
+  return new OneShotConstructor();
+}
+
+
+function LifeLikeTerrarium(plan) {
+  Terrarium.call(this, plan);
+}
+LifeLikeTerrarium.prototype = clone(Terrarium.prototype);
+LifeLikeTerrarium.prototype.constructor = LifeLikeTerrarium;
+
+LifeLikeTerrarium.prototype.processCreature = function(creature) {
+  if (creature.object.energy <= 0) return;
+  var surroundings = this.listSurroundings(creature.point);
+  var action = creature.object.act(surroundings);
+
+  var target = undefined;
+  var valueAtTarget = undefined;
+  if (action.direction && directions.contains(action.direction)) {
+    var direction = directions.lookup(action.direction);
+    var maybe = creature.point.add(direction);
+    if (this.grid.isInside(maybe)) {
+      target = maybe;
+      valueAtTarget = this.grid.valueAt(target);
+    }
+  }
+
+  if (action.type == "move") {
+    if (target && !valueAtTarget) {
+      this.grid.moveValue(creature.point, target);
+      creature.point = target;
+      creature.object.energy -= 1;
+    }
+  }
+  else if (action.type == "eat") {
+    if (valueAtTarget && valueAtTarget.energy) {
+      this.grid.setValueAt(target, undefined);
+      creature.object.energy += valueAtTarget.energy;
+      valueAtTarget.energy = 0;
+    }
+  }
+  else if (action.type == "photosynthese") {
+    creature.object.energy += 1;
+  }
+  else if (action.type == "reproduce") {
+    if (target && !valueAtTarget) {
+      var species = characterFromElement(creature.object);
+      var baby = elementFromCharacter(species);
+      creature.object.energy -= baby.energy * 2;
+      if (creature.object.energy > 0)
+	this.grid.setValueAt(target, baby);
+    }
+  }
+  else if (action.type == "wait") {
+    creature.object.energy -= 0.2;
+  }
+  else {
+    throw new Error("Unsupported action: " + action.type);
+  }
+
+  if (creature.object.energy <= 0)
+    this.grid.setValueAt(creature.point, undefined);
+};
+
+
+function Lichen() {
+  this.energy = 5;
+}
+Lichen.prototype.act = function(surroundings) {
+  var emptySpace = findDirections(surroundings, " ");
+  if (this.energy >= 13 && emptySpace.length > 0)
+    return {type: "reproduce", direction: randomElement(emptySpace)};
+  else if (this.energy < 20)
+    return {type: "photosynthese"};
+  else
+    return {type: "wait"};
+};
+Lichen.prototype.character = "*";
+
+
+function LichenEater() {
+    this.energy = 10;
+    this.direction = "ne";
+}
+
+LichenEater.prototype.act = function(surroundings) {
+  var emptySpace = findDirections(surroundings, " ");
+  var lichen = findDirections(surroundings, "*");
+
+  if (this.energy >= 30 && emptySpace.length > 0)
+    return {type: "reproduce", direction: randomElement(emptySpace)};
+  else if (lichen.length > 1)
+    return {type: "eat", direction: randomElement(lichen)};
+  else if (emptySpace.length > 0) {
+    if (surroundings[this.direction] != " ")
+	this.direction = randomElement(emptySpaces);
+      return {type: "move", direction: this.direction};
+  }
+  else
+    return {type: "wait"};
+};
+LichenEater.prototype.character = "c";
+
+function LichenEaterEater() {
+    this.energy = 10;
+}
+
+LichenEaterEater.prototype.act = function(surroundings) {
+    var emptySpaces = findDirections(surroundings, " ");
+    var food = findDirections(surroundings, "c");
+    
+    if (this.energy >= 30 && emptySpaces.length) 
+	return {type: "reproduce", direction: randomElement(emptySpaces)};
+    else if (food.length > 0)
+	return {type: "eat" , direction: randomElement(food)};
+    else
+	return {type: "move"};
+}
+LichenEaterEater.prototype.character = "@";
+
+
+
+creatureTypes.register(Lichen);
 creatureTypes.register(BouncingBug);
 creatureTypes.register(DrunkBug);
+creatureTypes.register(LichenEater);
+creatureTypes.register(LichenEaterEater);
