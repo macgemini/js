@@ -69,7 +69,7 @@ var lichenPlan =
    "#    ***   @            **##",
    "#   *##**         **  c  *##",
    "#    ***     c    ##**    *#",
-   "#  @    c         ##***   *#",
+   "#       c         ##***   *#",
    "#                 ##**    *#",
    "#   c       #*            *#",
    "#*      @   #**    @  c   *#",
@@ -351,11 +351,11 @@ LichenEater.prototype.act = function(surroundings) {
 
   if (this.energy >= 30 && emptySpace.length > 0)
     return {type: "reproduce", direction: randomElement(emptySpace)};
-  else if (lichen.length > 1)
+  else if (lichen.length > 0)
     return {type: "eat", direction: randomElement(lichen)};
   else if (emptySpace.length > 0) {
     if (surroundings[this.direction] != " ")
-	this.direction = randomElement(emptySpaces);
+	this.direction = randomElement(emptySpace);
       return {type: "move", direction: this.direction};
   }
   else
@@ -368,16 +368,16 @@ function LichenEaterEater() {
 }
 
 LichenEaterEater.prototype.act = function(surroundings) {
-    var emptySpaces = findDirections(surroundings, " ");
+    var emptySpace = findDirections(surroundings, " ");
     var food = findDirections(surroundings, "c");
-    
-    if (this.energy >= 30 && emptySpaces.length) 
-	return {type: "reproduce", direction: randomElement(emptySpaces)};
+
+    if (this.energy >= 60 && emptySpace.length)
+	return {type: "reproduce", direction: randomElement(emptySpace)};
     else if (food.length > 0)
 	return {type: "eat" , direction: randomElement(food)};
     else
-	return {type: "move"};
-}
+	return {type: "move", direction: randomElement(emptySpace)};
+};
 LichenEaterEater.prototype.character = "@";
 
 
